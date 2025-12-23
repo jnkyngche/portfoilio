@@ -40,21 +40,24 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG
           script: |
-            # ECR 로그인 (EC2 IAM Role 이용)
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            # 디버깅: 변수가 잘 왔는지 눈으로 확인 (로그에 찍힘)
+            echo "1. Registry: $ECR_REGISTRY"
+            echo "2. Repo: $ECR_REPOSITORY"
+            echo "3. Tag: $IMAGE_TAG"
 
-            # 컨테이너 재시작 로직
+            # ECR 로그인
+            aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            # 이미지 주소 완성 (변수가 비어있으면 여기서 에러 남)
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-            # 기존 컨테이너가 있으면 중지하고 삭제
             if [ "$(docker ps -q -f name=next-app)" ]; then
               docker stop next-app
               docker rm next-app
             fi
 
-            # 새 컨테이너 실행 (3000번 포트)
-            docker run -d --name next-app -p 3000:3000 ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+            docker run -d --name next-app -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-            # 미사용 이미지 정리
-            docker image prune -f
+            docker image prune -a -f
