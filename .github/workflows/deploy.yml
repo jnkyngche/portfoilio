@@ -36,28 +36,37 @@ jobs:
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG
+          port: 22
+          envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION
           script: |
-            # 디버깅: 변수가 잘 왔는지 눈으로 확인 (로그에 찍힘)
-            echo "1. Registry: $ECR_REGISTRY"
-            echo "2. Repo: $ECR_REPOSITORY"
-            echo "3. Tag: $IMAGE_TAG"
+            echo "----------------------------------------"
+            echo "Deploying Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            echo "Region: $AWS_REGION"
+            echo "----------------------------------------"
 
-            # ECR 로그인
-            aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            # 2. ECR 로그인
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-            # 이미지 주소 완성 (변수가 비어있으면 여기서 에러 남)
+            # 3. 이미지 Pull 
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+            # 4. 기존 컨테이너 정리
             if [ "$(docker ps -q -f name=next-app)" ]; then
               docker stop next-app
               docker rm next-app
             fi
 
+            # 5. 새 컨테이너 실행
             docker run -d --name next-app -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+            # 6. 미사용 이미지 정리
             docker image prune -a -f
