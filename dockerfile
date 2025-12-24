@@ -4,7 +4,6 @@
     FROM node:24-alpine AS deps
     RUN apk add --no-cache libc6-compat
     WORKDIR /app
-    
     COPY package.json package-lock.json ./
     RUN npm ci
     
@@ -16,11 +15,7 @@
     COPY --from=deps /app/node_modules ./node_modules
     COPY . .
     
-    # [핵심] GitHub Actions에서 넘어온 CDN URL을 받음
-    ARG NEXT_PUBLIC_CDN_URL
-    ENV NEXT_PUBLIC_CDN_URL=$NEXT_PUBLIC_CDN_URL
-    
-    # Next.js 빌드 (이때 자바스크립트 파일 내부 경로가 CDN 주소로 바뀜)
+    # [삭제됨] CDN URL 주입 코드 제거. 순수하게 빌드만 함.
     RUN npm run build
     
     # -------------------------------------------------------------------
@@ -36,8 +31,7 @@
     RUN addgroup --system --gid 1001 nodejs
     RUN adduser --system --uid 1001 nextjs
     
-    # [중요] Standalone 모드에 필요한 파일 복사
-    # 정적 파일은 S3로 가지만, 서버 구동 안정성을 위해(404 페이지 등) 내부에도 복사해둡니다.
+    # 파일 복사
     COPY --from=builder /app/public ./public
     COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
     COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
