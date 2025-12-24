@@ -1,4 +1,4 @@
-name: Deploy Next.js to EC2
+name: Deploy Next.js to EC2 with CDN
 
 on:
   push:
@@ -7,6 +7,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      S3_BUCKET_NAME: my-next-assets-2025
+      CLOUDFRONT_URL: ${{ secrets.CLOUDFRONT_URL }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -22,17 +27,54 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Set Tag with Short Commit SHA
+      - name: Set Tag
         id: vars
         run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Build and Push Docker Image
+      # ----------------------------------------------------------------
+      # 1. 도커 이미지 빌드
+      # ----------------------------------------------------------------
+      - name: Build Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # 여기서 env.CLOUDFRONT_URL은 위에서 시크릿으로 주입받은 값입니다.
+          docker build \
+            --build-arg NEXT_PUBLIC_CDN_URL=${{ env.CLOUDFRONT_URL }} \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+      # ----------------------------------------------------------------
+      # 2. 정적 파일 추출 및 S3 업로드
+      # ----------------------------------------------------------------
+      - name: Extract & Upload Assets to S3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          docker create --name temp-container $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          mkdir -p ./out_assets/_next/static
+          docker cp temp-container:/app/.next/static/. ./out_assets/_next/static/
+          docker cp temp-container:/app/public/. ./out_assets/
+          docker rm temp-container
+
+          echo "Uploading to S3..."
+
+          aws s3 sync ./out_assets/_next/static s3://$S3_BUCKET_NAME/_next/static \
+            --delete --cache-control "public, max-age=31536000, immutable"
+            
+          aws s3 sync ./out_assets s3://$S3_BUCKET_NAME \
+            --exclude "_next/static/*" --delete --cache-control "public, max-age=0, must-revalidate"
+
+      # ----------------------------------------------------------------
+      # 3. 이미지 푸시 및 EC2 배포
+      # ----------------------------------------------------------------
+      - name: Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
@@ -48,25 +90,14 @@ jobs:
           port: 22
           envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION
           script: |
-            echo "----------------------------------------"
-            echo "Deploying Image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-            echo "Region: $AWS_REGION"
-            echo "----------------------------------------"
-
-            # 2. ECR 로그인
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-
-            # 3. 이미지 Pull 
             docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-            # 4. 기존 컨테이너 정리
             if [ "$(docker ps -q -f name=next-app)" ]; then
               docker stop next-app
               docker rm next-app
             fi
 
-            # 5. 새 컨테이너 실행
             docker run -d --name next-app -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-            # 6. 미사용 이미지 정리
             docker image prune -a -f

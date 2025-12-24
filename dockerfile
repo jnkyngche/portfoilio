@@ -1,55 +1,49 @@
 # -------------------------------------------------------------------
-# 1. 의존성 설치 단계 (Deps)
+# 1. 의존성 설치 (Deps)
 # -------------------------------------------------------------------
-# 최신 Active LTS인 Node.js v24 (Alpine Linux) 사용
-FROM node:24-alpine AS deps
-
-# Alpine 리눅스에서 Next.js의 이미지 최적화 등을 위해 필수
-RUN apk add --no-cache libc6-compat
-
-WORKDIR /app
-
-# 패키지 파일 복사
-COPY package.json package-lock.json ./
-
-# 의존성 설치
-RUN npm ci
-
-# -------------------------------------------------------------------
-# 2. 빌드 단계 (Builder)
-# -------------------------------------------------------------------
-FROM node:24-alpine AS builder
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
-# Next.js 빌드 (Standalone 모드)
-RUN npm run build
-
-# -------------------------------------------------------------------
-# 3. 실행 단계 (Runner)
-# -------------------------------------------------------------------
-FROM node:24-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-ENV PORT 3000
-
-# 보안을 위해 시스템 그룹/유저 생성
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# 정적 파일 복사
-COPY --from=builder /app/public ./public
-
-# Standalone 빌드 결과물 복사 및 권한 부여
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# non-root 사용자 전환
-USER nextjs
-
-EXPOSE 3000
-
-CMD ["node", "server.js"]
+    FROM node:24-alpine AS deps
+    RUN apk add --no-cache libc6-compat
+    WORKDIR /app
+    
+    COPY package.json package-lock.json ./
+    RUN npm ci
+    
+    # -------------------------------------------------------------------
+    # 2. 빌드 (Builder)
+    # -------------------------------------------------------------------
+    FROM node:24-alpine AS builder
+    WORKDIR /app
+    COPY --from=deps /app/node_modules ./node_modules
+    COPY . .
+    
+    # [핵심] GitHub Actions에서 넘어온 CDN URL을 받음
+    ARG NEXT_PUBLIC_CDN_URL
+    ENV NEXT_PUBLIC_CDN_URL=$NEXT_PUBLIC_CDN_URL
+    
+    # Next.js 빌드 (이때 자바스크립트 파일 내부 경로가 CDN 주소로 바뀜)
+    RUN npm run build
+    
+    # -------------------------------------------------------------------
+    # 3. 실행 (Runner)
+    # -------------------------------------------------------------------
+    FROM node:24-alpine AS runner
+    WORKDIR /app
+    
+    ENV NODE_ENV production
+    ENV PORT 3000
+    
+    # 보안용 유저 생성
+    RUN addgroup --system --gid 1001 nodejs
+    RUN adduser --system --uid 1001 nextjs
+    
+    # [중요] Standalone 모드에 필요한 파일 복사
+    # 정적 파일은 S3로 가지만, 서버 구동 안정성을 위해(404 페이지 등) 내부에도 복사해둡니다.
+    COPY --from=builder /app/public ./public
+    COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+    COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+    
+    USER nextjs
+    
+    EXPOSE 3000
+    
+    CMD ["node", "server.js"]
