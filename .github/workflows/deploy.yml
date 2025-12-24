@@ -12,6 +12,25 @@ jobs:
       S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
     steps:
+      - name: Slack - 배포 시작 알림
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              "text": "🚀 *${{ github.repository }}* 배포가 시작되었습니다!",
+              "attachments": [{
+                "color": "warning",
+                "fields": [
+                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
+                  { "title": "Branch", "value": "${{ github.ref_name }}", "short": true },
+                  { "title": "Message", "value": "${{ github.event.head_commit.message }}", "short": false }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -100,3 +119,13 @@ jobs:
             docker run -d --name next-app -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
             docker image prune -a -f
+
+      - name: Slack - 배포 결과 알림
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+          author_name: GitHub Actions Notifier
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
