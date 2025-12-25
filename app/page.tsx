@@ -1,64 +1,70 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 import styles from "./page.module.css";
 
+const TYPING_TEXTS = ["안녕하세요, zeroth입니다 👋"];
+
 export default function Home() {
+  const [currentTextIndex, setCurrentTextIndex] = useState(0);
+  const [displayText, setDisplayText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [typingSpeed, setTypingSpeed] = useState(100);
+
+  useEffect(() => {
+    const currentText = TYPING_TEXTS[currentTextIndex];
+
+    const handleTyping = () => {
+      if (!isDeleting) {
+        // 타이핑 중
+        if (displayText.length < currentText.length) {
+          setDisplayText(currentText.substring(0, displayText.length + 1));
+          setTypingSpeed(100);
+        } else {
+          // 타이핑 완료, 잠시 대기 후 삭제 시작
+          setTimeout(() => setIsDeleting(true), 2000);
+        }
+      } else {
+        // 삭제 중
+        if (displayText.length > 0) {
+          setDisplayText(currentText.substring(0, displayText.length - 1));
+          setTypingSpeed(50);
+        } else {
+          // 삭제 완료, 다음 텍스트로
+          setIsDeleting(false);
+          setCurrentTextIndex((prev) => (prev + 1) % TYPING_TEXTS.length);
+        }
+      }
+    };
+
+    const timer = setTimeout(handleTyping, typingSpeed);
+    return () => clearTimeout(timer);
+  }, [displayText, isDeleting, currentTextIndex, typingSpeed]);
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>SSM로 배포된 Next.js 앱입니다.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className={styles.terminal}>
+          <div className={styles.terminalHeader}>
+            <div className={styles.terminalButtons}>
+              <span className={styles.button}></span>
+              <span className={styles.button}></span>
+              <span className={styles.button}></span>
+            </div>
+            <span className={styles.terminalTitle}>playground</span>
+          </div>
+          <div className={styles.terminalBody}>
+            <div className={styles.prompt}>
+              <span className={styles.promptUser}>zeroth@playground</span>
+              <span className={styles.promptSymbol}>:</span>
+              <span className={styles.promptPath}>~</span>
+              <span className={styles.promptSymbol}>$</span>
+            </div>
+            <div className={styles.typingText}>
+              {displayText}
+              <span className={styles.cursor}>▋</span>
+            </div>
+          </div>
         </div>
       </main>
     </div>
