@@ -10,6 +10,8 @@ async function fetchServerData() {
 export default async function ServerApiCall() {
   const data = await fetchServerData();
 
+  console.log("🔵 [SERVER] 렌더링된 데이터:", data);
+
   return (
     <div>
       <p>

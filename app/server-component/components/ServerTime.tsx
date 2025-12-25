@@ -9,6 +9,8 @@ export default function ServerTime() {
     second: "2-digit",
   });
 
+  console.log("🔵 [SERVER] 렌더링된 시간:", time);
+
   return (
     <div>
       <p>
