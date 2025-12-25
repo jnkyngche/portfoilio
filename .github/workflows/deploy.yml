@@ -1,4 +1,4 @@
-name: Deploy Next.js to EC2 (Integrated CloudFront)
+name: Deploy Next.js to EC2 (via SSM)
 
 on:
   push:
@@ -8,23 +8,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    # S3 버킷 이름 환경변수 공통 설정
     env:
       S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
 
     steps:
+      # ----------------------------------------------------------------
+      # 1. 초기 설정 및 알림
+      # ----------------------------------------------------------------
       - name: Slack - 배포 시작 알림
         uses: 8398a7/action-slack@v3
         with:
           status: custom
           custom_payload: |
             {
-              "text": "🚀 *${{ github.repository }}* 배포가 시작되었습니다!",
+              "text": "🚀 *${{ github.repository }}* 배포가 시작되었습니다! (via SSM)",
               "attachments": [{
                 "color": "warning",
                 "fields": [
                   { "title": "Author", "value": "${{ github.actor }}", "short": true },
                   { "title": "Branch", "value": "${{ github.ref_name }}", "short": true },
-                  { "title": "Message", "value": "${{ github.event.head_commit.message }}", "short": false }
+                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
                 ]
               }]
             }
@@ -45,31 +49,29 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Set Tag
+      - name: Set Tag (Short SHA)
         id: vars
         run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       # ----------------------------------------------------------------
-      # 1. 도커 이미지 빌드
+      # 2. 빌드 및 정적 파일 추출 (Build & Extract)
       # ----------------------------------------------------------------
       - name: Build Docker Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
-          # --build-arg 옵션 삭제됨
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
 
-      # ----------------------------------------------------------------
-      # 2. 정적 파일 S3 업로드
-      # ----------------------------------------------------------------
       - name: Extract & Upload Assets to S3
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
+          # 정적 파일 추출을 위한 임시 컨테이너 생성
           docker create --name temp-container $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
+          # 파일 복사
           mkdir -p ./out_assets/_next/static
           docker cp temp-container:/app/.next/static/. ./out_assets/_next/static/
           docker cp temp-container:/app/public/. ./out_assets/
@@ -77,16 +79,16 @@ jobs:
 
           echo "Uploading to S3..."
 
-          # JS, CSS 파일
+          # 1) _next/static (해시 파일이므로 캐시 길게, 삭제 허용)
           aws s3 sync ./out_assets/_next/static s3://$S3_BUCKET_NAME/_next/static \
             --delete --cache-control "public, max-age=31536000, immutable"
             
-          # 이미지 등 퍼블릭 파일
+          # 2) public assets (이미지 등은 덮어쓰기 가능, 삭제는 위험하므로 --delete 제외 권장)
           aws s3 sync ./out_assets s3://$S3_BUCKET_NAME \
-            --exclude "_next/static/*" --delete --cache-control "public, max-age=0, must-revalidate"
+            --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
 
       # ----------------------------------------------------------------
-      # 3. 배포
+      # 3. 이미지 푸시 및 EC2 배포 (Push & Deploy via SSM)
       # ----------------------------------------------------------------
       - name: Push Docker Image
         env:
@@ -94,32 +96,31 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Deploy to EC2 via SSM
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,AWS_REGION
-          script: |
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=instanceids,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --comment "Deploy Next.js App ($IMAGE_TAG)" \
+            --parameters 'commands=[
+              "echo 🚀 SSM Deployment Started...",
+              "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
+              "docker pull '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
+              "docker stop next-app || true",
+              "docker rm next-app || true",
+              "docker run -d --restart unless-stopped -p 3000:3000 --name next-app '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
+              "docker image prune -a -f",
+              "echo ✅ Deployment Completed!"
+            ]'
 
-            if [ "$(docker ps -q -f name=next-app)" ]; then
-              docker stop next-app
-              docker rm next-app
-            fi
-
-            docker run -d --name next-app -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-            docker image prune -a -f
-
+      # ----------------------------------------------------------------
+      # 4. 배포 결과 알림
+      # ----------------------------------------------------------------
       - name: Slack - 배포 결과 알림
         uses: 8398a7/action-slack@v3
         if: always()
