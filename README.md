@@ -1,3 +1,7 @@
+## Playground
+
+아무 개발이나 테스트를 하기위한 레포입니다.
+
 ## 🏗️ Architecture & Deployment
 
 ### 1. Service Architecture (User Request Flow)
