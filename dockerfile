@@ -27,28 +27,28 @@
     
     RUN pnpm run build
     
-    # -------------------------------------------------------------------
-    # 3. 실행 (Runner)
-    # -------------------------------------------------------------------
-    FROM node:24-alpine AS runner
-    WORKDIR /app
-    
-    ENV NODE_ENV=production
-    ENV PORT=3000
-    
-    # 보안용 유저 생성
-    RUN addgroup --system --gid 1001 nodejs
-    RUN adduser --system --uid 1001 nextjs
-    
-    # 파일 복사
-    COPY --from=builder /app/public ./public
-    COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-    COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-    COPY --from=builder /app/package.json ./package.json
-    COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
-    
-    USER nextjs
-    
-    EXPOSE 3000
-    
-    CMD ["node", "server.js"]
+   # -------------------------------------------------------------------
+# 3. 실행 (Runner)
+# -------------------------------------------------------------------
+FROM node:24-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# 보안용 유저 생성
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
