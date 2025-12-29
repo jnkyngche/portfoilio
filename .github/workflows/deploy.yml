@@ -15,6 +15,8 @@ jobs:
       S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
       CLOUDFRONT_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # 공통으로 쓸 변수들 (슬랙 전송용)
+      RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
     steps:
       # ----------------------------------------------------------------
@@ -30,7 +32,9 @@ jobs:
               "attachments": [{
                 "color": "#36a64f",
                 "fields": [
-                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
+                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
+                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false },
+                  { "title": "Action", "value": "<${{ env.RUN_URL }}|View Action>", "short": false }
                 ]
               }]
             }
@@ -62,54 +66,105 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
 
       # ----------------------------------------------------------------
-      # 3. 보안 스캔 (Trivy) - 상세 로그 슬랙 전송 포함
+      # 3. 보안 스캔 (Trivy) - 상세 로그 & 링크 포함
       # ----------------------------------------------------------------
 
-      # [3-1] 경찰 모드: Critical 이슈 검사
+      # [3-1] 경찰 모드: Critical 이슈 (차단)
       - name: Run Trivy (Block Critical)
         id: trivy_critical
         uses: aquasecurity/trivy-action@0.20.0
-        continue-on-error: true # 🚨 중요: 직접 슬랙을 보내고 죽기 위해 에러 무시 설정
+        continue-on-error: true
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           format: "table"
-          output: "trivy-critical.txt" # 결과를 파일로 저장
-          exit-code: "1" # 취약점 있으면 1 반환 (Failure)
+          output: "trivy-critical.txt"
+          exit-code: "1"
           severity: "CRITICAL"
 
+      # [3-1-Alert] Critical 발견 시 알림 (Total: 0이면 전송 안 함)
       - name: Slack - 🚨 Critical Issue Found
         if: steps.trivy_critical.outcome == 'failure'
         run: |
-          # 파일 내용을 읽어서 환경변수에 담음 (특수문자 이스케이프 처리 및 길이 제한)
+          # [수정] 0개면 그냥 통과 (알림 안 보냄)
+          if grep -q "Total: 0" trivy-critical.txt; then
+            echo "No critical issues found."
+            exit 0
+          fi
+
           REPORT=$(cat trivy-critical.txt | head -c 2000)
 
-          # JSON 페이로드를 만들기 위해 jq 사용 또는 단순 문자열 처리
-          # 여기서는 간단하게 curl로 직접 전송 (action-slack은 복잡한 텍스트 처리가 어려울 수 있음)
-          payload="{\"text\":\"🚨 *치명적인 보안 취약점(CRITICAL) 발견! 배포를 중단합니다.*\",\"attachments\":[{\"color\":\"#ff0000\",\"text\":\"\`\`\`$REPORT\`\`\`\"}]}"
+          # JSON 포맷 깨짐 방지를 위해 변수 처리 주의
+          # 작성자, 커밋, 링크 정보 추가
+          payload=$(cat <<EOF
+          {
+            "text": "🚨 *치명적인 보안 취약점(CRITICAL) 발견! 배포를 중단합니다.*",
+            "attachments": [
+              {
+                "color": "#ff0000",
+                "fields": [
+                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
+                  { "title": "Action", "value": "<$RUN_URL|View Action>", "short": true },
+                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
+                ]
+              },
+              {
+                "color": "#ff0000",
+                "title": "Trivy Report Snippet",
+                "text": "\`\`\`${REPORT}\`\`\`"
+              }
+            ]
+          }
+          EOF
+          )
 
           curl -X POST -H 'Content-type: application/json' --data "$payload" $SLACK_WEBHOOK_URL
-
-          # 알림 보냈으니 이제 진짜로 배포 중단
           exit 1
 
+      # [3-2] 감시자 모드: High/Medium 이슈 (경고)
       - name: Run Trivy (Monitor High/Medium)
         id: trivy_monitor
         uses: aquasecurity/trivy-action@0.20.0
-        continue-on-error: true # 경고만 하고 넘어가기 위해
+        continue-on-error: true
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           format: "table"
           output: "trivy-monitor.txt"
-          exit-code: "1" # 이슈 있으면 failure 처리 (하지만 continue-on-error로 통과됨)
+          exit-code: "1"
           severity: "HIGH,MEDIUM"
 
-      # [3-2-Alert] High/Medium 발견 시: 로그 읽어서 경고 슬랙 전송 (배포는 계속)
+      # [3-2-Alert] High/Medium 발견 시 알림 (Total: 0이면 전송 안 함)
       - name: Slack - ⚠️ Security Warning
         if: steps.trivy_monitor.outcome == 'failure'
         run: |
+          # [수정] 0개면 전송 스킵
+          if grep -q "Total: 0" trivy-monitor.txt; then
+            echo "No high/medium issues found."
+            exit 0
+          fi
+
           REPORT=$(cat trivy-monitor.txt | head -c 2000)
 
-          payload="{\"text\":\"⚠️ *보안 경고(High/Medium)가 있습니다.* (배포는 진행됨)\",\"attachments\":[{\"color\":\"#ffcc00\",\"text\":\"\`\`\`$REPORT\`\`\`\"}]}"
+          payload=$(cat <<EOF
+          {
+            "text": "⚠️ *보안 경고(High/Medium)가 있습니다.* (배포는 진행됨)",
+            "attachments": [
+              {
+                "color": "#ffcc00",
+                "fields": [
+                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
+                  { "title": "Action", "value": "<$RUN_URL|View Action>", "short": true },
+                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
+                ]
+              },
+              {
+                "color": "#ffcc00",
+                "title": "Trivy Report Snippet",
+                "text": "\`\`\`${REPORT}\`\`\`"
+              }
+            ]
+          }
+          EOF
+          )
 
           curl -X POST -H 'Content-type: application/json' --data "$payload" $SLACK_WEBHOOK_URL
 
@@ -152,7 +207,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
-          # [Secrets] 환경변수 추가
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         run: |
@@ -181,15 +235,29 @@ jobs:
             sleep 5
           done
 
-      - name: Slack - 배포 성공 알림
+      # ----------------------------------------------------------------
+      # 6. 최종 성공/실패 알림 (8398a7/action-slack 플러그인 사용)
+      # ----------------------------------------------------------------
+      - name: Slack - 최종 배포 결과 알림
         uses: 8398a7/action-slack@v3
-        if: success()
+        if: always() # 성공이든 실패든 무조건 실행
         with:
-          status: custom
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,took
+          author_name: GitHub Actions Notifier
+          # 성공 메시지 커스텀
           custom_payload: |
             {
-              "text": "✅ *배포 성공!* (Trivy Scan Passed)",
-              "attachments": [{ "color": "good", "fields": [{ "title": "Commit", "value": "${{ github.event.head_commit.message }}" }] }]
+              "attachments": [{
+                "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                "text": "${{ job.status == 'success' && '✅ 배포 완료! (Trivy Scan Passed)' || '❌ 배포 실패!' }}",
+                "fields": [
+                  { "title": "Repository", "value": "${{ github.repository }}", "short": true },
+                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
+                  { "title": "Action", "value": "<${{ env.RUN_URL }}|Go to Action>", "short": true },
+                  { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
+                ]
+              }]
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
