@@ -5,7 +5,7 @@ import styles from "./page.module.css";
 
 const TYPING_TEXTS = [
   "안녕하세요, zeroth입니다 👋",
-  "안전한 배포플로우 구성 완료!",
+  "안전한 트리비 배포플로우 구성 완료!",
 ];
 
 export default function Home() {
