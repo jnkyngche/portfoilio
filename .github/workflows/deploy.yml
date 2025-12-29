@@ -83,7 +83,6 @@ jobs:
       - name: Slack - 🚨 Critical Issue Found
         if: steps.trivy_critical.outcome == 'failure'
         run: |
-          # [Fix] Total: 0이면 알림 스킵
           if grep -q "Total: 0" trivy-critical.txt; then echo "Clean!"; exit 0; fi
 
           REPORT=$(cat trivy-critical.txt | head -c 2000)
@@ -114,7 +113,6 @@ jobs:
       - name: Slack - ⚠️ Security Warning
         if: steps.trivy_monitor.outcome == 'failure'
         run: |
-          # [Fix] Total: 0이면 알림 스킵
           if grep -q "Total: 0" trivy-monitor.txt; then echo "Clean!"; exit 0; fi
 
           REPORT=$(cat trivy-monitor.txt | head -c 2000)
@@ -151,7 +149,7 @@ jobs:
         run: aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
 
       # ----------------------------------------------------------------
-      # 5. EC2 배포 (Push & SSM with Log Debugging)
+      # 5. EC2 배포 (Push & SSM)
       # ----------------------------------------------------------------
       - name: Push Docker Image
         env:
@@ -166,13 +164,10 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
-          # 환경변수 (특수문자 주의)
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         run: |
           echo "🚀 Sending deployment command..."
 
-          # [Fix 2] 환경변수를 .env 파일로 생성하는 방식으로 변경 (따옴표 오류 방지)
+          # [수정됨] 불필요한 환경변수 제거 및 외부 접속 허용 설정
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets "Key=instanceids,Values=$INSTANCE_ID" \
@@ -183,12 +178,8 @@ jobs:
               "docker stop next-app || true",
               "docker rm next-app || true",
               
-              "echo \"Creating .env file...\"",
-              "echo \"NODE_ENV=production\" > .env",
-              "echo \"DATABASE_URL='"$DATABASE_URL"'\" >> .env",
-              "echo \"NEXTAUTH_SECRET='"$NEXTAUTH_SECRET"'\" >> .env",
+              "docker run -d --restart unless-stopped -p 3000:3000 --name next-app -e NODE_ENV=production -e HOSTNAME=\"0.0.0.0\" '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
               
-              "docker run -d --restart unless-stopped -p 3000:3000 --name next-app --env-file .env '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
               "docker image prune -a -f",
               
               "echo \"Waiting for health check...\"",
@@ -199,7 +190,6 @@ jobs:
 
           echo "Command ID: $COMMAND_ID"
 
-          # [Fix 3] 실패 시 상세 로그 출력 로직 추가
           while true; do
             STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "Status" --output text)
             
