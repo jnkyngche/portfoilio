@@ -11,7 +11,7 @@
     # [변경] pnpm-lock.yaml 복사
     COPY package.json pnpm-lock.yaml ./
     
-    # [변경] pnpm으로 의존성 설치 (npm ci와 동일한 역할)
+    # [변경] pnpm으로 의존성 설치 
     RUN pnpm install --frozen-lockfile
     
     # -------------------------------------------------------------------
