@@ -3,19 +3,10 @@
 import { use, useEffect, useState, useMemo } from "react";
 import styles from "./page.module.css";
 
-import axios from "axios";
-
 const TYPING_TEXTS = [
   "안녕하세요, zeroth입니다 👋",
-  "안전한 트리비 배포플로우 구성 완료!",
+  "안전한 트리비 배포플로우 구성 100% 완료!",
 ];
-
-async function getTest() {
-  const response = await axios.get(
-    "https://jsonplaceholder.typicode.com/posts/1"
-  );
-  return response;
-}
 
 export default function Home() {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
