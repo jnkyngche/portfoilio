@@ -9,10 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "axios": "0.21.1",
     "next": "16.1.1",
     "react": "19.0.2",
-    "react-dom": "19.2.3",
-    "vm2": "3.9.15"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@types/node": "^20",

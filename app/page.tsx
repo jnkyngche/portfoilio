@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import styles from "./page.module.css";
 
-import { VM } from "vm2"; // 1. 임포트하고
-console.log(VM); // 2. 사용하는 척 출력함
+import "axios";
 
 const TYPING_TEXTS = [
   "안녕하세요, zeroth입니다 👋",
