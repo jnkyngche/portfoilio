@@ -95,7 +95,6 @@ jobs:
             exit 0
           fi
 
-          # 🔥 [수정됨] 단순 grep 대신 정규표현식(-E) 사용
           # "CRITICAL: 0"은 무시하고, "CRITICAL: 1" 이상인 경우(숫자 1~9)만 잡습니다.
           if grep -E -q "CRITICAL: [1-9]" trivy-report.txt; then
             echo "🚨 Critical issues found!"
