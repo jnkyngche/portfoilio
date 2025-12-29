@@ -14,10 +14,6 @@ export default function Home() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [typingSpeed, setTypingSpeed] = useState(100);
 
-  const promise = useMemo(() => getTest(), []);
-  const data = use(promise);
-  console.log(data);
-
   useEffect(() => {
     const currentText = TYPING_TEXTS[currentTextIndex];
 
