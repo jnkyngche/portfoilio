@@ -62,10 +62,11 @@ jobs:
       - name: Analyze Trivy Results & Notify
         id: security_check
         run: |
-          # 보고서 내용 읽기
-          REPORT=$(cat trivy-report.txt | head -c 2000)
+          echo "::group::📊 Trivy 전체 스캔 결과 (클릭해서 열기)"
+          cat trivy-report.txt
+          echo "::endgroup::"
 
-          # [함수] 슬랙 전송용 함수
+          REPORT=$(cat trivy-report.txt | head -c 2000)
           send_slack() {
             local color=$1
             local icon=$2
