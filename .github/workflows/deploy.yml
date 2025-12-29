@@ -67,7 +67,7 @@ jobs:
       # 🔥 Trivy 통합 스캔 (One-Shot)
       # ----------------------------------------------------------------
       - name: Run Trivy (All Severities)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           image-ref: "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           format: "table"
