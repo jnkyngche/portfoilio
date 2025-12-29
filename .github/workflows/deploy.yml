@@ -16,7 +16,6 @@ jobs:
       CLOUDFRONT_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      # 봇 이름 통일
       SLACK_USERNAME: "playground 배포 알림봇"
 
     steps:
@@ -204,7 +203,7 @@ jobs:
           done
 
       # ----------------------------------------------------------------
-      # 6. 최종 배포 결과 알림 (성공 :white_check_mark: / 실패 :x:)
+      # 6. 최종 배포 결과 알림
       # ----------------------------------------------------------------
       - name: Slack - 최종 배포 결과 알림
         uses: 8398a7/action-slack@v3
