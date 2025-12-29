@@ -55,7 +55,7 @@ jobs:
           severity: "CRITICAL,HIGH,MEDIUM"
 
       # ----------------------------------------------------------------
-      # 2. 결과 분석 및 알림 (jq 사용으로 문법 오류 완벽 해결)
+      # 2. 결과 분석 및 알림
       # ----------------------------------------------------------------
       - name: Analyze Trivy Results & Notify
         id: security_check
@@ -63,14 +63,12 @@ jobs:
           # 보고서 내용 읽기
           REPORT=$(cat trivy-report.txt | head -c 2000)
 
-          # [함수] 슬랙 전송용 함수 (jq를 사용해 JSON 생성)
-          # 이렇게 하면 따옴표나 줄바꿈 때문에 에러가 나지 않습니다.
+          # [함수] 슬랙 전송용 함수
           send_slack() {
             local color=$1
             local icon=$2
             local message=$3
             
-            # jq로 payload.json 파일 생성
             jq -n \
               --arg username "$SLACK_USERNAME" \
               --arg icon "$icon" \
@@ -88,7 +86,6 @@ jobs:
                 }]
               }' > payload.json
             
-            # 생성된 파일로 전송
             curl -X POST -H 'Content-type: application/json' --data @payload.json "$SLACK_WEBHOOK_URL"
           }
 
@@ -98,15 +95,17 @@ jobs:
             exit 0
           fi
 
-          # 2. CRITICAL 발견 -> 배포 중단 (Exit 1)
-          if grep -q "CRITICAL" trivy-report.txt; then
+          # 🔥 [수정됨] 단순 grep 대신 정규표현식(-E) 사용
+          # "CRITICAL: 0"은 무시하고, "CRITICAL: 1" 이상인 경우(숫자 1~9)만 잡습니다.
+          if grep -E -q "CRITICAL: [1-9]" trivy-report.txt; then
             echo "🚨 Critical issues found!"
             send_slack "#ff0000" ":rotating_light:" "🚨 *치명적인 보안 취약점(CRITICAL) 발견! 배포를 중단합니다.*"
             exit 1
           fi
 
           # 3. HIGH/MEDIUM 발견 -> 경고만 함 (Exit 0)
-          if grep -q "HIGH" trivy-report.txt || grep -q "MEDIUM" trivy-report.txt; then
+          # 여기도 마찬가지로 개수가 1개 이상일 때만 반응하도록 수정
+          if grep -E -q "HIGH: [1-9]|MEDIUM: [1-9]" trivy-report.txt; then
             echo "⚠️ Non-critical issues found."
             send_slack "#ffcc00" ":warning:" "⚠️ *보안 경고(High/Medium)가 있습니다.* (배포는 진행됨)"
             exit 0
