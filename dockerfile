@@ -33,14 +33,17 @@
     ENV NODE_ENV=production
     ENV PORT=3000
     
-    # 보안용 유저 생성
     RUN addgroup --system --gid 1001 nodejs
     RUN adduser --system --uid 1001 nextjs
     
+    # [1] 먼저 Next.js 결과물을 복사합니다 (여기에 가짜 package.json이 포함됨)
     COPY --from=builder /app/public ./public
     COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
     COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
     
+    # 🔥 [2] 핵심: 진짜 원본 package.json과 Lock 파일로 '덮어씌웁니다' 🔥
+    # 이렇게 해야 Trivy가 "아! 이 Lock 파일이랑 package.json이랑 짝이 맞네!" 하고 읽기 시작합니다.
+    COPY --from=builder /app/package.json ./package.json
     COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
     
     USER nextjs
