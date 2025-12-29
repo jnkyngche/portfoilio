@@ -53,6 +53,8 @@ jobs:
           output: "trivy-report.txt"
           exit-code: "0"
           severity: "CRITICAL,HIGH,MEDIUM"
+        env:
+          TRIVY_DISABLE_VEX_NOTICE: "true"
 
       # ----------------------------------------------------------------
       # 2. 결과 분석 및 알림
