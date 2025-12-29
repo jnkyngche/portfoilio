@@ -1,4 +1,4 @@
-name: Deploy Next.js to EC2 (via SSM)
+name: Deploy Next.js to EC2 (via SSM) with Security Scan
 
 on:
   push:
@@ -14,6 +14,7 @@ jobs:
     env:
       S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
       CLOUDFRONT_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
       # ----------------------------------------------------------------
@@ -25,18 +26,14 @@ jobs:
           status: custom
           custom_payload: |
             {
-              "text": "🚀 *${{ github.repository }}* 배포가 시작되었습니다! (via SSM)",
+              "text": "🚀 *${{ github.repository }}* 배포 시작! (보안 검사 포함)",
               "attachments": [{
-                "color": "warning",
+                "color": "#36a64f",
                 "fields": [
-                  { "title": "Author", "value": "${{ github.actor }}", "short": true },
-                  { "title": "Branch", "value": "${{ github.ref_name }}", "short": true },
                   { "title": "Commit", "value": "${{ github.event.head_commit.message }}", "short": false }
                 ]
               }]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,7 +52,7 @@ jobs:
         run: echo "IMAGE_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       # ----------------------------------------------------------------
-      # 2. 빌드 및 정적 파일 추출 (Build & Extract)
+      # 2. 빌드 (Docker Build)
       # ----------------------------------------------------------------
       - name: Build Docker Image
         env:
@@ -64,37 +61,83 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
 
+      # ----------------------------------------------------------------
+      # 3. 보안 스캔 (Trivy) - 상세 로그 슬랙 전송 포함
+      # ----------------------------------------------------------------
+
+      # [3-1] 경찰 모드: Critical 이슈 검사
+      - name: Run Trivy (Block Critical)
+        id: trivy_critical
+        uses: aquasecurity/trivy-action@0.20.0
+        continue-on-error: true # 🚨 중요: 직접 슬랙을 보내고 죽기 위해 에러 무시 설정
+        with:
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          format: "table"
+          output: "trivy-critical.txt" # 결과를 파일로 저장
+          exit-code: "1" # 취약점 있으면 1 반환 (Failure)
+          severity: "CRITICAL"
+
+      - name: Slack - 🚨 Critical Issue Found
+        if: steps.trivy_critical.outcome == 'failure'
+        run: |
+          # 파일 내용을 읽어서 환경변수에 담음 (특수문자 이스케이프 처리 및 길이 제한)
+          REPORT=$(cat trivy-critical.txt | head -c 2000)
+
+          # JSON 페이로드를 만들기 위해 jq 사용 또는 단순 문자열 처리
+          # 여기서는 간단하게 curl로 직접 전송 (action-slack은 복잡한 텍스트 처리가 어려울 수 있음)
+          payload="{\"text\":\"🚨 *치명적인 보안 취약점(CRITICAL) 발견! 배포를 중단합니다.*\",\"attachments\":[{\"color\":\"#ff0000\",\"text\":\"\`\`\`$REPORT\`\`\`\"}]}"
+
+          curl -X POST -H 'Content-type: application/json' --data "$payload" $SLACK_WEBHOOK_URL
+
+          # 알림 보냈으니 이제 진짜로 배포 중단
+          exit 1
+
+      - name: Run Trivy (Monitor High/Medium)
+        id: trivy_monitor
+        uses: aquasecurity/trivy-action@0.20.0
+        continue-on-error: true # 경고만 하고 넘어가기 위해
+        with:
+          image-ref: "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+          format: "table"
+          output: "trivy-monitor.txt"
+          exit-code: "1" # 이슈 있으면 failure 처리 (하지만 continue-on-error로 통과됨)
+          severity: "HIGH,MEDIUM"
+
+      # [3-2-Alert] High/Medium 발견 시: 로그 읽어서 경고 슬랙 전송 (배포는 계속)
+      - name: Slack - ⚠️ Security Warning
+        if: steps.trivy_monitor.outcome == 'failure'
+        run: |
+          REPORT=$(cat trivy-monitor.txt | head -c 2000)
+
+          payload="{\"text\":\"⚠️ *보안 경고(High/Medium)가 있습니다.* (배포는 진행됨)\",\"attachments\":[{\"color\":\"#ffcc00\",\"text\":\"\`\`\`$REPORT\`\`\`\"}]}"
+
+          curl -X POST -H 'Content-type: application/json' --data "$payload" $SLACK_WEBHOOK_URL
+
+      # ----------------------------------------------------------------
+      # 4. 정적 파일 S3 업로드 & CloudFront 무효화
+      # ----------------------------------------------------------------
       - name: Extract & Upload Assets to S3
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: |
           docker create --name temp-container $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
           mkdir -p ./out_assets/_next/static
           docker cp temp-container:/app/.next/static/. ./out_assets/_next/static/
           docker cp temp-container:/app/public/. ./out_assets/
           docker rm temp-container
 
           echo "Uploading to S3..."
-          # 1) _next/static (Immutable)
-          aws s3 sync ./out_assets/_next/static s3://$S3_BUCKET_NAME/_next/static \
-            --cache-control "public, max-age=31536000, immutable"
-            
-          # 2) public assets (Mutable)
-          aws s3 sync ./out_assets s3://$S3_BUCKET_NAME \
-            --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
+          aws s3 sync ./out_assets/_next/static s3://$S3_BUCKET_NAME/_next/static --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync ./out_assets s3://$S3_BUCKET_NAME --exclude "_next/static/*" --cache-control "public, max-age=0, must-revalidate"
 
       - name: Invalidate CloudFront
-        if: env.CLOUDFRONT_ID != '' # Secret이 설정되어 있을 때만 실행
+        if: env.CLOUDFRONT_ID != ''
         run: |
-          echo "Invalidating CloudFront cache..."
-          aws cloudfront create-invalidation \
-            --distribution-id $CLOUDFRONT_ID \
-            --paths "/*"
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
 
       # ----------------------------------------------------------------
-      # 3. 이미지 푸시 및 EC2 배포 (Push & Deploy via SSM)
+      # 5. EC2 배포 (Push & SSM)
       # ----------------------------------------------------------------
       - name: Push Docker Image
         env:
@@ -102,72 +145,51 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
         run: docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Deploy to EC2 via SSM (with Health Check)
+      - name: Deploy to EC2 via SSM
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
           INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          # [Secrets] 환경변수 추가
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         run: |
-          echo "🚀 Sending deployment command to EC2..."
-
-          # [수정됨] Health Check 로직 추가
+          echo "🚀 Sending deployment command..."
           COMMAND_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets "Key=instanceids,Values=$INSTANCE_ID" \
-            --comment "Deploy Next.js App ($IMAGE_TAG)" \
+            --comment "Deploy ($IMAGE_TAG)" \
             --parameters 'commands=[
               "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REGISTRY"'",
               "docker pull '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
               "docker stop next-app || true",
               "docker rm next-app || true",
-              "docker run -d --restart unless-stopped -p 3000:3000 --name next-app -e NODE_ENV=production '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
-              "docker image prune -f",
-              "echo Waiting for service to start...",
-              "sleep 5",
-              "for i in {1..10}; do if curl -sf http://localhost:3000 > /dev/null; then echo \"✅ Health Check Passed!\"; exit 0; fi; echo \"Waiting... $i/10\"; sleep 3; done;",
-              "echo \"❌ Health Check Failed! Application is not responding.\"; docker logs next-app --tail 50; exit 1"
+              "docker run -d --restart unless-stopped -p 3000:3000 --name next-app -e NODE_ENV=production -e DATABASE_URL=\"'"$DATABASE_URL"'\" -e NEXTAUTH_SECRET=\"'"$NEXTAUTH_SECRET"'\" '"$ECR_REGISTRY"'/'"$ECR_REPOSITORY"':'"$IMAGE_TAG"'",
+              "docker image prune -a -f", 
+              "for i in {1..10}; do if curl -sf http://localhost:3000 > /dev/null; then echo \"✅ Health Check Passed!\"; exit 0; fi; sleep 3; done;",
+              "echo \"❌ Health Check Failed!\"; docker logs next-app --tail 50; exit 1"
             ]' \
             --query "Command.CommandId" --output text)
 
-          echo "Command ID: $COMMAND_ID"
-          echo "Waiting for command execution..."
-
-          # SSM 결과 폴링
+          # SSM Polling Loop
           while true; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "Status" \
-              --output text)
-            
-            echo "Current Status: $STATUS"
-
-            if [ "$STATUS" == "Success" ]; then
-              echo "✅ SSM Command Finished Successfully!"
-              exit 0
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ] || [ "$STATUS" == "TimedOut" ]; then
-              echo "❌ SSM Command Failed/Cancelled/TimedOut"
-              aws ssm get-command-invocation \
-                --command-id "$COMMAND_ID" \
-                --instance-id "$INSTANCE_ID" \
-                --query "StandardErrorContent" \
-                --output text
-              exit 1
-            fi
+            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "Status" --output text)
+            if [ "$STATUS" == "Success" ]; then echo "✅ Success!"; exit 0; fi
+            if [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ] || [ "$STATUS" == "TimedOut" ]; then echo "❌ Failed"; exit 1; fi
             sleep 5
           done
 
-      # ----------------------------------------------------------------
-      # 4. 배포 결과 알림
-      # ----------------------------------------------------------------
-      - name: Slack - 배포 결과 알림
+      - name: Slack - 배포 성공 알림
         uses: 8398a7/action-slack@v3
-        if: always()
+        if: success()
         with:
-          status: ${{ job.status }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
-          author_name: GitHub Actions Notifier
+          status: custom
+          custom_payload: |
+            {
+              "text": "✅ *배포 성공!* (Trivy Scan Passed)",
+              "attachments": [{ "color": "good", "fields": [{ "title": "Commit", "value": "${{ github.event.head_commit.message }}" }] }]
+            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
