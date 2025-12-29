@@ -4,19 +4,28 @@
     FROM node:24-alpine AS deps
     RUN apk add --no-cache libc6-compat
     WORKDIR /app
-    COPY package.json package-lock.json ./
-    RUN npm ci
+    
+    # [변경] pnpm 활성화
+    RUN corepack enable && corepack prepare pnpm@latest --activate
+    
+    # [변경] pnpm-lock.yaml 복사
+    COPY package.json pnpm-lock.yaml ./
+    
+    # [변경] pnpm으로 의존성 설치 (npm ci와 동일한 역할)
+    RUN pnpm install --frozen-lockfile
     
     # -------------------------------------------------------------------
     # 2. 빌드 (Builder)
     # -------------------------------------------------------------------
     FROM node:24-alpine AS builder
     WORKDIR /app
+    
+    RUN corepack enable && corepack prepare pnpm@latest --activate
+    
     COPY --from=deps /app/node_modules ./node_modules
     COPY . .
     
-    # [삭제됨] CDN URL 주입 코드 제거. 순수하게 빌드만 함.
-    RUN npm run build
+    RUN pnpm run build
     
     # -------------------------------------------------------------------
     # 3. 실행 (Runner)
@@ -24,8 +33,8 @@
     FROM node:24-alpine AS runner
     WORKDIR /app
     
-    ENV NODE_ENV production
-    ENV PORT 3000
+    ENV NODE_ENV=production
+    ENV PORT=3000
     
     # 보안용 유저 생성
     RUN addgroup --system --gid 1001 nodejs
