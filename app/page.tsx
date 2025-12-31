@@ -23,6 +23,13 @@ export default function Home() {
       href: "/isr",
       icon: "🔄",
     },
+    {
+      title: "Image Optimization",
+      description:
+        "CLS 방지, WebP 자동 변환, Lazy Loading 성능 비교",
+      href: "/optimization/image",
+      icon: "🖼️",
+    },
   ];
 
   return (

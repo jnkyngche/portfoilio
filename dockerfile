@@ -1,5 +1,8 @@
 FROM node:24-alpine AS base
 
+ARG NEXT_PUBLIC_CLOUDFRONT_DOMAIN
+ENV NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+
 # 1. Deps
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -22,6 +25,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
