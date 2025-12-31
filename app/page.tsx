@@ -17,6 +17,12 @@ export default function Home() {
       href: "/streaming",
       icon: "⚡",
     },
+    {
+      title: "ISR (Incremental Static Regeneration)",
+      description: "10초 주기로 정적 페이지가 갱신되는 것을 테스트합니다.",
+      href: "/isr",
+      icon: "🔄",
+    },
   ];
 
   return (

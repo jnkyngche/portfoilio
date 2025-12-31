@@ -1,0 +1,192 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #ededed;
+  padding: 0;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+      circle at 20% 50%,
+      rgba(59, 130, 246, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(147, 51, 234, 0.1) 0%,
+      transparent 50%
+    );
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.header {
+  padding: 48px 0 32px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 48px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ededed;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 200px);
+  padding-bottom: 48px;
+}
+
+.card {
+  width: 100%;
+  max-width: 700px;
+  padding: 48px;
+  background: rgba(13, 17, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6, #9333ea, #3b82f6);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.timeLabel {
+  font-size: 16px;
+  color: #8b949e;
+  margin-bottom: 24px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.timeDisplay {
+  font-size: 48px;
+  font-weight: 700;
+  color: #3b82f6;
+  margin-bottom: 32px;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono",
+    "Source Code Pro", monospace;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  line-height: 1.2;
+}
+
+.description {
+  margin-bottom: 32px;
+  color: #8b949e;
+  line-height: 1.8;
+}
+
+.description p {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+}
+
+.description p:last-child {
+  margin-bottom: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.refreshButton {
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ededed;
+  background: linear-gradient(135deg, #3b82f6 0%, #9333ea 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.refreshButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+}
+
+.refreshButton:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 20px;
+  }
+
+  .header {
+    padding: 32px 0 24px 0;
+    margin-bottom: 32px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .card {
+    padding: 32px 24px;
+  }
+
+  .timeDisplay {
+    font-size: 32px;
+    letter-spacing: 1px;
+  }
+
+  .timeLabel {
+    font-size: 14px;
+  }
+
+  .description p {
+    font-size: 14px;
+  }
+
+  .refreshButton {
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+}
+
