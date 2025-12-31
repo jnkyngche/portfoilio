@@ -1,73 +1,43 @@
-"use client";
-
-import { use, useEffect, useState, useMemo } from "react";
-import styles from "./page.module.css";
-
-const TYPING_TEXTS = [
-  "안녕하세요, zeroth입니다 👋",
-  "안전한 트리비 배포플로우 구성 100% 완료!",
-];
+import Link from "next/link";
+import styles from "./home.module.css";
 
 export default function Home() {
-  const [currentTextIndex, setCurrentTextIndex] = useState(0);
-  const [displayText, setDisplayText] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [typingSpeed, setTypingSpeed] = useState(100);
-
-  useEffect(() => {
-    const currentText = TYPING_TEXTS[currentTextIndex];
-
-    const handleTyping = () => {
-      if (!isDeleting) {
-        // 타이핑 중
-        if (displayText.length < currentText.length) {
-          setDisplayText(currentText.substring(0, displayText.length + 1));
-          setTypingSpeed(100);
-        } else {
-          // 타이핑 완료, 잠시 대기 후 삭제 시작
-          setTimeout(() => setIsDeleting(true), 2000);
-        }
-      } else {
-        // 삭제 중
-        if (displayText.length > 0) {
-          setDisplayText(currentText.substring(0, displayText.length - 1));
-          setTypingSpeed(50);
-        } else {
-          // 삭제 완료, 다음 텍스트로
-          setIsDeleting(false);
-          setCurrentTextIndex((prev) => (prev + 1) % TYPING_TEXTS.length);
-        }
-      }
-    };
-
-    const timer = setTimeout(handleTyping, typingSpeed);
-    return () => clearTimeout(timer);
-  }, [displayText, isDeleting, currentTextIndex, typingSpeed]);
+  const features = [
+    {
+      title: "Server vs Client",
+      description:
+        "서버 컴포넌트와 클라이언트 컴포넌트의 API 호출 차이를 비교해보세요.",
+      href: "/server-component",
+      icon: "🔵",
+    },
+    {
+      title: "Streaming SSR",
+      description:
+        "Next.js의 Suspense와 Streaming 기능을 시각적으로 확인해보세요.",
+      href: "/streaming",
+      icon: "⚡",
+    },
+  ];
 
   return (
     <div className={styles.page}>
+      <header className={styles.header}>
+        <h1 className={styles.logo}>Zeroth Playground</h1>
+      </header>
       <main className={styles.main}>
-        <div className={styles.terminal}>
-          <div className={styles.terminalHeader}>
-            <div className={styles.terminalButtons}>
-              <span className={styles.button}></span>
-              <span className={styles.button}></span>
-              <span className={styles.button}></span>
-            </div>
-            <span className={styles.terminalTitle}>playground</span>
-          </div>
-          <div className={styles.terminalBody}>
-            <div className={styles.prompt}>
-              <span className={styles.promptUser}>zeroth@playground</span>
-              <span className={styles.promptSymbol}>:</span>
-              <span className={styles.promptPath}>~</span>
-              <span className={styles.promptSymbol}>$</span>
-            </div>
-            <div className={styles.typingText}>
-              {displayText}
-              <span className={styles.cursor}>▋</span>
-            </div>
-          </div>
+        <div className={styles.cardGrid}>
+          {features.map((feature) => (
+            <Link
+              key={feature.href}
+              href={feature.href}
+              className={styles.card}
+            >
+              <div className={styles.cardIcon}>{feature.icon}</div>
+              <h2 className={styles.cardTitle}>{feature.title}</h2>
+              <p className={styles.cardDescription}>{feature.description}</p>
+              <div className={styles.cardLink}>테스트하기 →</div>
+            </Link>
+          ))}
         </div>
       </main>
     </div>

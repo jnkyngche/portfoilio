@@ -1,0 +1,382 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #ededed;
+  padding: 0;
+  position: relative;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+      circle at 20% 50%,
+      rgba(59, 130, 246, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(147, 51, 234, 0.1) 0%,
+      transparent 50%
+    );
+  pointer-events: none;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.header {
+  margin-bottom: 48px;
+}
+
+.title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ededed;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.5px;
+}
+
+.description {
+  background: rgba(13, 17, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  line-height: 1.8;
+}
+
+.description p {
+  margin: 0 0 16px 0;
+  color: #c9d1d9;
+  font-size: 15px;
+}
+
+.description p:last-child {
+  margin-bottom: 0;
+}
+
+.description strong {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.main {
+  width: 100%;
+}
+
+.componentsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+.section {
+  background: rgba(13, 17, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 32px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ededed;
+  margin: 0 0 24px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 데이터 컨테이너 (로드 완료 상태) */
+.dataContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.successMessage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+}
+
+.checkIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #22c55e;
+  color: #0a0a0a;
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.successMessage h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.timestamp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: 8px;
+}
+
+.timestampLabel {
+  font-size: 14px;
+  color: #8b949e;
+  font-weight: 500;
+}
+
+.timestampValue {
+  font-size: 18px;
+  color: #58a6ff;
+  font-weight: 600;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* API 데이터 컴포넌트 스타일 */
+.apiContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.quoteContainer {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #fbbf24;
+}
+
+.quoteText {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #ededed;
+  margin: 0 0 16px 0;
+  font-style: italic;
+}
+
+.quoteAuthor {
+  font-size: 16px;
+  color: #8b949e;
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+}
+
+.postBody {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #c9d1d9;
+  margin: 12px 0;
+}
+
+.errorMessage {
+  padding: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.errorMessage p {
+  margin: 0;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.apiInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 6px;
+}
+
+.apiLabel {
+  font-size: 13px;
+  color: #8b949e;
+  font-weight: 500;
+}
+
+.apiValue {
+  font-size: 13px;
+  color: #fbbf24;
+  font-weight: 600;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* 스켈레톤 UI (로딩 상태) */
+.skeletonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.skeletonIcon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeletonTitle {
+  height: 20px;
+  width: 200px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.skeletonContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.skeletonLine {
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.skeletonLine:first-child {
+  width: 100%;
+}
+
+.skeletonLine:last-child {
+  width: 70%;
+}
+
+.loadingText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #58a6ff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.loadingDot {
+  display: inline-block;
+  animation: bounce 1.4s ease-in-out infinite;
+  font-size: 12px;
+}
+
+.loadingDot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loadingDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loadingDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 32px 20px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .description {
+    padding: 20px;
+  }
+
+  .componentsGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .section {
+    padding: 24px;
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+  }
+}
