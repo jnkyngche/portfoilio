@@ -47,6 +47,52 @@ export default function StreamingPage() {
           </div>
         </header>
 
+        <section className={styles.infoBox}>
+          <h2 className={styles.infoTitle}>What is Streaming SSR?</h2>
+          <div className={styles.infoContent}>
+            <p>
+              기존 <strong>SSR</strong>은 모든 데이터가 준비될 때까지 브라우저가
+              HTML을 받지 못해 <strong>&quot;흰 화면(Blank Screen)&quot;</strong>을
+              오래 보게 됩니다.
+            </p>
+            <p>
+              <strong>Streaming SSR</strong>은 HTML을 작은 청크(Chunk)로 나누어
+              전송합니다. 덕분에 사용자는 느린 데이터가 로딩되는 동안에도 페이지의
+              기본 레이아웃을 즉시 볼 수 있습니다.
+            </p>
+            <div className={styles.benefitsList}>
+              <h3 className={styles.benefitsTitle}>핵심 이점</h3>
+              <ul>
+                <li>
+                  <strong>TTFB (Time To First Byte) 단축:</strong> 서버가 요청을
+                  받자마자 응답을 시작함.
+                </li>
+                <li>
+                  <strong>FCP (First Contentful Paint) 개선:</strong> 사용자가
+                  콘텐츠를 더 빨리 봄.
+                </li>
+              </ul>
+            </div>
+            <div className={styles.metricsSection}>
+              <h3 className={styles.metricsTitle}>Key Metrics (성능 지표)</h3>
+              <ul className={styles.metricsList}>
+                <li>
+                  <strong className={styles.metricTerm}>TTFB (Time To First Byte):</strong>{" "}
+                  서버로부터 첫 번째 응답을 받는 시간. Streaming 사용 시 획기적으로 단축됨.
+                </li>
+                <li>
+                  <strong className={styles.metricTerm}>FCP (First Contentful Paint):</strong>{" "}
+                  사용자가 화면에서 첫 콘텐츠를 보는 시점. Streaming 덕분에 흰 화면 없이 즉시 로딩 상태를 볼 수 있음.
+                </li>
+                <li>
+                  <strong className={styles.metricTerm}>TTI (Time To Interactive):</strong>{" "}
+                  사용자가 실제로 클릭 가능한 시점. 하이드레이션(Hydration)이 완료되어야 함.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
         <main className={styles.main}>
           <div className={styles.componentsGrid}>
             {components.map((component) => (

@@ -69,6 +69,133 @@
   font-weight: 600;
 }
 
+/* Streaming SSR 기술 설명 섹션 */
+.infoBox {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 48px;
+}
+
+.infoTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: #58a6ff;
+  margin: 0 0 20px 0;
+  letter-spacing: -0.3px;
+}
+
+.infoContent {
+  line-height: 1.8;
+}
+
+.infoContent p {
+  margin: 0 0 16px 0;
+  color: #c9d1d9;
+  font-size: 15px;
+}
+
+.infoContent p:last-of-type {
+  margin-bottom: 24px;
+}
+
+.infoContent strong {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.benefitsList {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.benefitsTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ededed;
+  margin: 0 0 16px 0;
+}
+
+.benefitsList ul {
+  margin: 0;
+  padding-left: 24px;
+  list-style: none;
+}
+
+.benefitsList li {
+  margin: 0 0 12px 0;
+  color: #c9d1d9;
+  font-size: 15px;
+  line-height: 1.7;
+  position: relative;
+  padding-left: 20px;
+}
+
+.benefitsList li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: #58a6ff;
+  font-weight: bold;
+}
+
+.benefitsList li:last-child {
+  margin-bottom: 0;
+}
+
+.benefitsList li strong {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+/* 성능 지표 섹션 */
+.metricsSection {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.metricsTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ededed;
+  margin: 0 0 16px 0;
+}
+
+.metricsList {
+  margin: 0;
+  padding-left: 24px;
+  list-style: none;
+}
+
+.metricsList li {
+  margin: 0 0 16px 0;
+  color: #c9d1d9;
+  font-size: 15px;
+  line-height: 1.7;
+  position: relative;
+  padding-left: 20px;
+}
+
+.metricsList li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: #58a6ff;
+  font-weight: bold;
+}
+
+.metricsList li:last-child {
+  margin-bottom: 0;
+}
+
+.metricTerm {
+  color: #79c0ff;
+  font-weight: 600;
+}
+
 .main {
   width: 100%;
 }
@@ -365,6 +492,27 @@
 
   .description {
     padding: 20px;
+  }
+
+  .infoBox {
+    padding: 24px 20px;
+    margin-bottom: 32px;
+  }
+
+  .infoTitle {
+    font-size: 20px;
+  }
+
+  .infoContent p {
+    font-size: 14px;
+  }
+
+  .benefitsTitle {
+    font-size: 16px;
+  }
+
+  .benefitsList li {
+    font-size: 14px;
   }
 
   .componentsGrid {
